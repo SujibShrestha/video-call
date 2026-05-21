@@ -1,0 +1,42 @@
+import express, { type Request, type Response } from 'express'
+import { prisma } from './config/db.js'
+import cors from "cors"
+import dotenv from "dotenv"
+dotenv.config()
+
+const app = express()
+const port = process.env.PORT || 3000
+
+//Middlewares
+app.use(cors())
+app.use(express.json())
+app.use(express.urlencoded())
+
+
+app.get('/',(req:Request,res:Response)=>{
+    res.json({
+        message:"Api is Running"
+    })
+})
+
+app.get('/health', (_req:Request, res:Response) => {
+	res.status(200).json({
+		status: 'ok',
+		service: 'backend',
+		uptime: process.uptime(),
+		timestamp: new Date().toISOString(),
+	})
+})
+
+app.get('/health/ready', async (_req:Request, res:Response) => {
+	try {
+		await prisma.$queryRaw`SELECT 1`
+		res.status(200).json({ status: 'ready' })
+	} catch (_error) {
+		res.status(503).json({ status: 'not_ready' })
+	}
+})
+
+app.listen(port, () => {
+	console.log(`Server running on http://localhost:${port}`)
+})
