@@ -7,9 +7,32 @@ datasource db {
   provider = "postgresql"
 }
 
+model Room {
+  id        String       @id @default(uuid())
+  name      String
+  ownerId   String
+  owner     User         @relation("OwnedRooms", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   RoomMember[]
+  createdAt DateTime     @default(now())
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+  id        String       @id @default(uuid())
+  name      String
+  email     String       @unique
+  password  String
+  rooms     Room[]       @relation("OwnedRooms")
+  memberOf  RoomMember[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model RoomMember {
+  id     String @id @default(uuid())
+  userId String
+  roomId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roomId])
 }
