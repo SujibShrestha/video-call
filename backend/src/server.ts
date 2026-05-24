@@ -3,6 +3,7 @@ import { prisma } from './config/db.js'
 import cors from "cors"
 import dotenv from "dotenv"
 import authRoutes from './routes/auth.route.js'
+import roomRoutes from './routes/room.route.js'
 dotenv.config()
 
 const app = express()
@@ -15,6 +16,7 @@ app.use(express.urlencoded({ extended: true }))
 
 //ROutes
 app.use('/api/v1/auth', authRoutes)
+app.use('/api/v1/room', roomRoutes)
 
 
 app.get('/',(req:Request,res:Response)=>{
