@@ -2,11 +2,14 @@ import express, { type Request, type Response } from 'express'
 import { prisma } from './config/db.js'
 import cors from "cors"
 import dotenv from "dotenv"
+import { createServer } from 'http'
 import authRoutes from './routes/auth.route.js'
 import roomRoutes from './routes/room.route.js'
+import { initSocket } from './socket/index.js'
 dotenv.config()
 
 const app = express()
+const httpServer = createServer(app)
 const port = process.env.PORT || 3000
 
 //Middlewares
@@ -43,6 +46,11 @@ app.get('/health/ready', async (_req:Request, res:Response) => {
 	}
 })
 
-app.listen(port, () => {
-	console.log(`Server running on http://localhost:${port}`)
+// Socket.io
+initSocket(httpServer)
+
+
+
+httpServer.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`)
 })
