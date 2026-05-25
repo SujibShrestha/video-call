@@ -1,0 +1,397 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useAuthContext } from '../context/AuthContext'
+import { useToast } from '../components/ui/Toast'
+import { Button } from '../components/ui/Button'
+import { Card, CardBody, CardHeader } from '../components/ui/Card'
+import { Modal } from '../components/ui/Modal'
+import { getRoom, joinRoom, leaveRoom, deleteRoom, getErrorMessage } from '../api/api'
+import { socket } from '../socket'
+import type { RoomRecord } from '../types/room'
+
+export function Room() {
+  const params = useParams()
+  const navigate = useNavigate()
+  const { user } = useAuthContext()
+  const { addToast } = useToast()
+
+  const roomId = params.id
+  const [room, setRoom] = useState<RoomRecord | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isJoined, setIsJoined] = useState(false)
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false)
+  const [isActionLoading, setIsActionLoading] = useState(false)
+
+  const isValidRoomId = typeof roomId === 'string' && roomId.trim().length > 0
+  const isOwner = room && user && room.ownerId === user.id
+
+  // Load room details
+  useEffect(() => {
+    if (!isValidRoomId) {
+      return
+    }
+
+    const loadRoom = async () => {
+      setIsLoading(true)
+
+      try {
+        const room = await getRoom(roomId)
+        setRoom(room)
+        // Check if current user is already a member
+        if (room.members && Array.isArray(room.members)) {
+          setIsJoined(room.members.some((m: any) => m.userId === user?.id))
+        }
+      } catch (error) {
+        const errorMessage = getErrorMessage(error)
+        addToast({
+          type: 'error',
+          title: 'Failed to load room',
+          description: errorMessage,
+        })
+        navigate('/', { replace: true })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadRoom()
+  }, [isValidRoomId, navigate, roomId, user?.id, addToast])
+
+  // Socket connection for real-time member tracking
+  useEffect(() => {
+    if (!room || !isValidRoomId || !user) {
+      return
+    }
+
+    const handleUserJoined = (socketId: string) => {
+      setOnlineUsers((prev) => new Set([...prev, socketId]))
+      addToast({
+        type: 'info',
+        title: 'Member joined',
+        description: 'Someone just joined the room',
+        duration: 3000,
+      })
+    }
+
+    const handleUserLeft = (socketId: string) => {
+      setOnlineUsers((prev) => {
+        const updated = new Set(prev)
+        updated.delete(socketId)
+        return updated
+      })
+    }
+
+    const handleSocketError = (message: string) => {
+      console.error('socket error:', message)
+      addToast({
+        type: 'error',
+        title: 'Connection error',
+        description: message,
+        duration: 3000,
+      })
+    }
+
+    socket.connect()
+    socket.on('user-joined', handleUserJoined)
+    socket.on('user-left', handleUserLeft)
+    socket.on('error', handleSocketError)
+    socket.emit('join-room', room.id)
+
+    return () => {
+      socket.off('user-joined', handleUserJoined)
+      socket.off('user-left', handleUserLeft)
+      socket.off('error', handleSocketError)
+      socket.disconnect()
+    }
+  }, [isValidRoomId, room, user, addToast])
+
+  const handleJoinRoom = async () => {
+    if (!roomId) return
+    setIsActionLoading(true)
+
+    try {
+      await joinRoom(roomId)
+      setIsJoined(true)
+      addToast({
+        type: 'success',
+        title: 'Joined room!',
+        description: 'You are now a member of this room',
+      })
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Failed to join',
+        description: getErrorMessage(error),
+      })
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
+
+  const handleLeaveRoom = async () => {
+    if (!roomId) return
+    setIsActionLoading(true)
+
+    try {
+      await leaveRoom(roomId)
+      addToast({
+        type: 'success',
+        title: 'Left room',
+        description: 'You have left the room',
+      })
+      navigate('/')
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Failed to leave',
+        description: getErrorMessage(error),
+      })
+    } finally {
+      setIsActionLoading(false)
+      setIsLeaveModalOpen(false)
+    }
+  }
+
+  const handleDeleteRoom = async () => {
+    if (!roomId) return
+    setIsActionLoading(true)
+
+    try {
+      await deleteRoom(roomId)
+      addToast({
+        type: 'success',
+        title: 'Room deleted',
+        description: 'The room has been deleted successfully',
+      })
+      navigate('/')
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Failed to delete',
+        description: getErrorMessage(error),
+      })
+    } finally {
+      setIsActionLoading(false)
+      setIsDeleteModalOpen(false)
+    }
+  }
+
+  if (!isValidRoomId) {
+    navigate('/')
+    return null
+  }
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-slate-50 py-8 px-4">
+        <div className="mx-auto max-w-6xl">
+          <div className="animate-pulse">
+            <div className="h-8 bg-slate-200 rounded-lg mb-6 w-1/3"></div>
+            <div className="space-y-4">
+              <div className="h-64 bg-slate-200 rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-6xl">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">{room?.name}</h1>
+            <p className="text-sm text-slate-600 mt-2">
+              Room ID: <span className="font-mono font-medium">{room?.id}</span>
+            </p>
+          </div>
+          <Button variant="ghost" onClick={() => navigate('/')}>
+            ← Back to home
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Room Info Card */}
+            {room && (
+              <Card>
+                <CardHeader>
+                  <h2 className="text-lg font-semibold text-slate-900">Room Details</h2>
+                </CardHeader>
+                <CardBody className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-lg">
+                      <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Owner</p>
+                      <p className="font-semibold text-slate-900">
+                        {isOwner ? 'You' : room.owner?.name || 'Unknown'}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg">
+                      <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Created</p>
+                      <p className="font-semibold text-slate-900">
+                        {new Date(room.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg">
+                      <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Members</p>
+                      <p className="font-semibold text-slate-900">{room.members?.length || 0}</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg">
+                      <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Status</p>
+                      <p className="font-semibold text-emerald-600">{isJoined ? '✓ Joined' : 'Not joined'}</p>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+
+            {/* Members Card */}
+            <Card>
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
+                <h2 className="text-lg font-semibold text-slate-900">Members ({room?.members?.length || 0})</h2>
+              </CardHeader>
+              <CardBody>
+                {room?.members && room.members.length > 0 ? (
+                  <div className="space-y-3">
+                    {room.members.map((member: any) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                            {member.user?.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-900 text-sm">
+                              {member.user?.name} {member.userId === room.ownerId && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full ml-2">Owner</span>}
+                            </p>
+                            <p className="text-xs text-slate-600">{member.user?.email}</p>
+                          </div>
+                        </div>
+                        {onlineUsers.has(member.userId) ? (
+                          <span className="flex items-center gap-2 text-xs font-medium text-emerald-600">
+                            <span className="w-2 h-2 bg-emerald-600 rounded-full"></span>
+                            Online
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium text-slate-500">Offline</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-slate-600">No members in this room yet</p>
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+
+          {/* Sidebar - Actions */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-20">
+              <CardHeader className="bg-gradient-to-r from-emerald-50 to-emerald-100">
+                <h2 className="font-semibold text-slate-900">Actions</h2>
+              </CardHeader>
+              <CardBody className="space-y-3">
+                {!isJoined ? (
+                  <>
+                    <p className="text-sm text-slate-600 mb-4">Join this room to see all features and real-time updates.</p>
+                    <Button
+                      variant="primary"
+                      className="w-full"
+                      onClick={handleJoinRoom}
+                      isLoading={isActionLoading}
+                    >
+                      Join Room
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-600 mb-2">You are a member of this room.</p>
+                    {isOwner && (
+                      <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                        You are the room owner
+                      </p>
+                    )}
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => setIsLeaveModalOpen(true)}
+                      isLoading={isActionLoading}
+                    >
+                      Leave Room
+                    </Button>
+                    {isOwner && (
+                      <Button
+                        variant="danger"
+                        className="w-full"
+                        onClick={() => setIsDeleteModalOpen(true)}
+                        isLoading={isActionLoading}
+                      >
+                        Delete Room
+                      </Button>
+                    )}
+                  </>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Leave Room Modal */}
+      <Modal
+        isOpen={isLeaveModalOpen}
+        onClose={() => setIsLeaveModalOpen(false)}
+        title="Leave Room?"
+        description="You will no longer be a member of this room. You can rejoin using the room ID."
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onClick: () => setIsLeaveModalOpen(false),
+          },
+          {
+            label: 'Leave Room',
+            variant: 'danger',
+            onClick: handleLeaveRoom,
+            isLoading: isActionLoading,
+          },
+        ]}
+      >
+        <p className="text-sm text-slate-600">This action cannot be undone.</p>
+      </Modal>
+
+      {/* Delete Room Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Delete Room?"
+        description="This will permanently delete the room and remove all members."
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onClick: () => setIsDeleteModalOpen(false),
+          },
+          {
+            label: 'Delete Room',
+            variant: 'danger',
+            onClick: handleDeleteRoom,
+            isLoading: isActionLoading,
+          },
+        ]}
+      >
+        <p className="text-sm text-red-600">⚠️ This action cannot be undone. All room data will be lost.</p>
+      </Modal>
+    </main>
+  )
+}
