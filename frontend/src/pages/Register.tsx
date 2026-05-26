@@ -66,8 +66,9 @@ export function Register() {
       setUser(response.user)
       addToast({
         type: 'success',
-        title: 'Account created!',
-        description: `Welcome ${response.user.name}!`,
+        title: 'Account created',
+        description: `Welcome ${response.user.name}! Your account is ready — create or join a room to get started.`,
+        duration: 4000,
       })
       navigate('/')
     } catch (error) {
@@ -75,7 +76,8 @@ export function Register() {
       addToast({
         type: 'error',
         title: 'Registration failed',
-        description: errorMessage,
+        description: `${errorMessage}. Please try again or contact support if the problem persists.`,
+        duration: 6000,
       })
     } finally {
       setIsSubmitting(false)

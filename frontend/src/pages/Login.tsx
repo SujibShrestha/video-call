@@ -46,16 +46,18 @@ export function Login() {
       setUser(response.user)
       addToast({
         type: 'success',
-        title: 'Welcome back!',
-        description: `Logged in as ${response.user.name}`,
+        title: 'Signed in',
+        description: `Welcome back, ${response.user.name}. You are now signed in.`,
+        duration: 3000,
       })
       navigate('/')
     } catch (error) {
       const errorMessage = getErrorMessage(error)
       addToast({
         type: 'error',
-        title: 'Login failed',
-        description: errorMessage,
+        title: 'Sign in failed',
+        description: `${errorMessage}. Check your credentials and try again.`,
+        duration: 6000,
       })
     } finally {
       setIsSubmitting(false)

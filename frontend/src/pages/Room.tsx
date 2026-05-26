@@ -35,7 +35,7 @@ export function Room() {
     {
       onUserJoined: (_socketId:string, joinedUserId?: string) => {
         if (joinedUserId) setOnlineUsers((prev) => new Set([...prev, joinedUserId]))
-        addToast({ type: 'info', title: 'Member joined', description: 'Someone just joined the room', duration: 3000 })
+        addToast({ type: 'info', title: 'Participant connected', description: 'A participant has joined the room.', duration: 3000 })
       },
       onUserLeft: (_socketId:string, leftUserId?: string) => {
         if (leftUserId) setOnlineUsers((prev) => {
@@ -45,7 +45,7 @@ export function Room() {
         })
       },
       onError: (message:string) => {
-        addToast({ type: 'error', title: 'Connection error', description: message, duration: 3000 })
+        addToast({ type: 'error', title: 'Connection issue', description: `${message}. Check your network and try again.`, duration: 6000 })
       },
     },
     user?.id
@@ -64,7 +64,7 @@ export function Room() {
           setIsJoined(room.members.some((m: any) => m.userId === user?.id))
         }
       } catch (error) {
-        addToast({ type: 'error', title: 'Failed to load room', description: getErrorMessage(error) })
+        addToast({ type: 'error', title: 'Unable to load room', description: `${getErrorMessage(error)}. You have been redirected to the home page.` })
         navigate('/', { replace: true })
       } finally {
         setIsLoading(false)
@@ -82,9 +82,9 @@ export function Room() {
       await joinRoom(roomId)
       setIsJoined(true)
       if (user?.id) setOnlineUsers((prev) => new Set([...prev, user.id]))
-      addToast({ type: 'success', title: 'Joined room!', description: 'You are now a member of this room' })
+      addToast({ type: 'success', title: 'Joined room', description: 'You are now a member — your camera and mic should connect shortly.' })
     } catch (error) {
-      addToast({ type: 'error', title: 'Failed to join', description: getErrorMessage(error) })
+      addToast({ type: 'error', title: 'Could not join room', description: `${getErrorMessage(error)}. Please try again or check your permissions.` })
     } finally {
       setIsActionLoading(false)
     }
@@ -95,10 +95,10 @@ export function Room() {
     setIsActionLoading(true)
     try {
       await leaveRoom(roomId)
-      addToast({ type: 'success', title: 'Left room', description: 'You have left the room' })
+      addToast({ type: 'success', title: 'Left room', description: 'You have left the room.' })
       navigate('/')
     } catch (error) {
-      addToast({ type: 'error', title: 'Failed to leave', description: getErrorMessage(error) })
+      addToast({ type: 'error', title: 'Failed to leave', description: `${getErrorMessage(error)}. Try again or refresh the page.` })
     } finally {
       setIsActionLoading(false)
       setIsLeaveModalOpen(false)
@@ -115,10 +115,10 @@ export function Room() {
     setIsActionLoading(true)
     try {
       await deleteRoom(roomId)
-      addToast({ type: 'success', title: 'Room deleted', description: 'The room has been deleted successfully' })
+      addToast({ type: 'success', title: 'Room deleted', description: 'The room was deleted successfully.' })
       navigate('/')
     } catch (error) {
-      addToast({ type: 'error', title: 'Failed to delete', description: getErrorMessage(error) })
+      addToast({ type: 'error', title: 'Failed to delete', description: `${getErrorMessage(error)}. Ensure you are the room owner and try again.` })
     } finally {
       setIsActionLoading(false)
       setIsDeleteModalOpen(false)

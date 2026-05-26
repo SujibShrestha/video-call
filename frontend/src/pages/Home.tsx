@@ -35,16 +35,18 @@ export function Home() {
       const room = await createRoom(trimmed)
       addToast({
         type: 'success',
-        title: 'Room created!',
-        description: `"${room.name}" is ready for guests`,
+        title: 'Room created',
+        description: `"${room.name}" created. Invite others using the room ID or share the link.`,
+        duration: 5000,
       })
       navigate(`/room/${room.id}`)
     } catch (error) {
       const errorMessage = getErrorMessage(error)
       addToast({
         type: 'error',
-        title: 'Failed to create room',
-        description: errorMessage,
+        title: 'Could not create room',
+        description: `${errorMessage}. Try again or check your network connection.`,
+        duration: 6000,
       })
     } finally {
       setIsCreateLoading(false)
