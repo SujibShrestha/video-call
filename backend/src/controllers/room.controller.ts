@@ -91,11 +91,7 @@ export const joinRoom = async (req: AuthenticatedRequest, res: Response) => {
     if (!room) {
       return res.status(404).json("Room not Found or Already Closed");
     }
-    if (room.ownerId === userId) {
-      return res
-        .status(400)
-        .json({ message: "You are the owner of this room" });
-    }
+   
     const member = await prisma.roomMember.upsert({
       where: {
         userId_roomId: { userId, roomId },
@@ -174,7 +170,18 @@ export const getRoom = async (req: AuthenticatedRequest, res: Response) => {
     const isOwner = room.ownerId === userId;
 
     if (!isMember && !isOwner) {
-      return res.status(403).json("Forbidden");
+      // Allow non-members to view basic room info so they can join.
+      // Return room metadata but hide members list to avoid exposing member details.
+      const publicRoom = {
+        id: room.id,
+        name: room.name,
+        owner: room.owner,
+        ownerId: room.ownerId,
+        createdAt: room.createdAt,
+        members: [],
+      }
+
+      return res.status(200).json(publicRoom);
     }
 
     return res.status(200).json(room);
