@@ -3,13 +3,7 @@
         "frontend": {
             "root": "frontend",
             "routePrefix": "/",
-            "framework": "vite",
-            "outputDirectory": "dist"
-        },
-        "backend": {
-            "root": "backend",
-            "routePrefix": "/_/backend",
-            "entrypoint": "src/server.ts"
+            "framework": "vite"
         }
     }
 }

@@ -1,0 +1,8 @@
+{
+    "experimentalServices": {
+        "backend": {
+            "routePrefix": "/",
+            "entrypoint": "src/server.ts"
+        }
+    }
+}
